@@ -198,10 +198,7 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
 			public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 				mSendMessageButton.setEnabled(mMessageTextToSend.getText().length() > 0 || mFilesUploadLayout.getChildCount() > 0);
 				if (mChatRoom != null && mMessageTextToSend.getText().length() > 0) {
-					mAttachImageButton.setEnabled(false);
 					mChatRoom.compose();
-				} else {
-					mAttachImageButton.setEnabled(true);
 				}
 			}
 
@@ -624,8 +621,6 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
 
 		mFilesUploadLayout.addView(pendingFile);
 
-		mAttachImageButton.setEnabled(false); // For now limit file per message to 1
-		mMessageTextToSend.setEnabled(false); // For now forbid to send both text and picture at the same time
 		mSendMessageButton.setEnabled(true);
 	}
 
@@ -658,8 +653,6 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
 
 		mFilesUploadLayout.addView(pendingImage);
 
-		mAttachImageButton.setEnabled(false); // For now limit file per message to 1
-		mMessageTextToSend.setEnabled(false); // For now forbid to send both text and picture at the same time
 		mSendMessageButton.setEnabled(true);
 	}
 
@@ -670,30 +663,33 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
 	private void sendMessage() {
 		String text = mMessageTextToSend.getText().toString();
 
-		ChatMessage msg;
-		//TODO: rework when we'll send multiple files at once
-		if (mFilesUploadLayout.getChildCount() > 0) {
-			String filePath = (String) mFilesUploadLayout.getChildAt(0).getTag();
-			String fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
-			String extension = LinphoneUtils.getExtensionFromFileName(fileName);
-			Content content = Factory.instance().createContent();
-			if (LinphoneUtils.isExtensionImage(fileName)) {
-				content.setType("image");
-			} else {
-				content.setType("file");
-			}
-			content.setSubtype(extension);
-			content.setName(fileName);
-			msg = mChatRoom.createFileTransferMessage(content);
-			msg.setFileTransferFilepath(filePath); // Let the file body handler take care of the upload
-			msg.setAppdata(filePath);
+		ChatMessage msg = mChatRoom.createEmptyMessage();
 
-			if (text != null && text.length() > 0) {
-				msg.addTextContent(text);
+		int fileCount = mFilesUploadLayout.getChildCount();
+		if (fileCount > 0) {
+			for (int i = 0; i < fileCount; i++) {
+				String filePath = (String) mFilesUploadLayout.getChildAt(i).getTag();
+				String fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
+				String extension = LinphoneUtils.getExtensionFromFileName(fileName);
+
+				Content content = Factory.instance().createContent();
+				if (LinphoneUtils.isExtensionImage(fileName)) {
+					content.setType("image");
+				} else {
+					content.setType("file");
+				}
+				content.setSubtype(extension);
+				content.setName(fileName);
+				content.setFilePath(filePath);
+
+				msg.addFileContent(content);
 			}
-		} else {
-			msg = mChatRoom.createMessage(text);
 		}
+
+		if (text != null && text.length() > 0) {
+			msg.addTextContent(text);
+		}
+
 		// Set listener not required here anymore, message will be added to messages list and adapter will set the listener
 		msg.send();
 
