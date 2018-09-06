@@ -254,6 +254,19 @@
 					android:inputType="textUri"
 					android:persistent="false"/>
 
+				<ListPreference
+					android:title="@string/pref_auto_download_policy_title"
+					android:key="@string/pref_auto_download_policy_key"
+					android:entries="@array/pref_auto_download_policy_entries_labels"
+					android:entryValues="@array/pref_auto_download_policy_entries_values"
+					android:persistent="false"/>
+
+				<EditTextPreference
+					android:title="@string/pref_auto_download_max_size_title"
+					android:key="@string/pref_auto_download_max_size_key"
+					android:inputType="numberSigned"
+					android:persistent="false"/>
+
 			</PreferenceCategory>
 
 		</PreferenceScreen>
