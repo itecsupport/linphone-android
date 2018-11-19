@@ -105,7 +105,7 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
     private Uri mImageToUploadUri;
     private ChatEventsAdapter mEventsAdapter;
     private String mRemoteSipUri;
-    private Address mRemoteSipAddress, mRemoteParticipantAddress;
+    private Address mRemoteSipAddress, mRemoteParticipantAddress, mLocalIdentityAddress;
     private ChatRoom mChatRoom;
     private ArrayList<LinphoneContact> mParticipants;
     private LinearLayoutManager layoutManager;
@@ -119,9 +119,15 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
         // Retain the fragment across configuration changes
         setRetainInstance(true);
 
-        if (getArguments() != null && getArguments().getString("SipUri") != null) {
-            mRemoteSipUri = getArguments().getString("SipUri");
-            mRemoteSipAddress = LinphoneManager.getLc().createAddress(mRemoteSipUri);
+        if (getArguments() != null) {
+            if (getArguments().getString("SipUri") != null) {
+                mRemoteSipUri = getArguments().getString("SipUri");
+                mRemoteSipAddress = LinphoneManager.getLc().createAddress(mRemoteSipUri);
+            }
+            if (getArguments().getString("LocalIdentity") != null) {
+                String localIdentity = getArguments().getString("LocalIdentity");
+                mLocalIdentityAddress = LinphoneManager.getLc().createAddress(localIdentity);
+            }
         }
 
         mContext = getActivity().getApplicationContext();
@@ -541,13 +547,19 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
             //TODO error
             return;
         }
-        Address proxyConfigContact = (core.getDefaultProxyConfig() != null) ? core.getDefaultProxyConfig().getContact() : null;
+
+        Address proxyConfigContact = mLocalIdentityAddress;
+        if (proxyConfigContact == null) {
+            proxyConfigContact = core.getDefaultProxyConfig() != null ? core.getDefaultProxyConfig().getContact() : null;
+        }
+
         if (proxyConfigContact != null) {
             mChatRoom = core.findOneToOneChatRoom(proxyConfigContact, mRemoteSipAddress);
         }
         if (mChatRoom == null) {
             mChatRoom = core.getChatRoomFromUri(mRemoteSipAddress.asStringUriOnly());
         }
+
         mChatRoom.addListener(this);
         mChatRoom.markAsRead();
         LinphoneManager.getInstance().updateUnreadCountForChatRoom(mChatRoom, 0);
@@ -597,7 +609,6 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
     }
 
     private void displayChatRoomHistory() {
-
         if (mChatRoom == null) return;
         if (mChatRoom.hasCapability(ChatRoomCapabilities.OneToOne.toInt())) {
             mEventsAdapter = new ChatEventsAdapter(this, mSelectionHelper, R.layout.chat_bubble, mChatRoom.getHistoryMessageEvents(MESSAGES_PER_PAGE), mParticipants, this);
@@ -673,7 +684,6 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
         Intent chooserIntent = Intent.createChooser(galleryIntent, getString(R.string.image_picker_title));
         chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, cameraIntents.toArray(new Parcelable[]{}));
 
-        LinphoneActivity.instance().disableGoToCall();
         startActivityForResult(chooserIntent, ADD_PHOTO);
     }
 
@@ -821,10 +831,10 @@ public class GroupChatFragment extends Fragment implements ChatRoomListener, Con
             if (!getResources().getBoolean(R.bool.disable_chat_message_notification)) {
                 if (contact != null) {
                     LinphoneService.instance().displayMessageNotification(from.asStringUriOnly(),
-                            contact.getFullName(), contact.getThumbnailUri(), getString(R.string.message_cant_be_decrypted_notif));
+                            contact.getFullName(), contact.getThumbnailUri(), getString(R.string.message_cant_be_decrypted_notif), cr.getLocalAddress().asString());
                 } else {
                     LinphoneService.instance().displayMessageNotification(from.asStringUriOnly(),
-                            from.getUsername(), null, getString(R.string.message_cant_be_decrypted_notif));
+                            from.getUsername(), null, getString(R.string.message_cant_be_decrypted_notif), cr.getLocalAddress().asString());
                 }
             }
         } else if (LinphoneManager.getLc().limeEnabled() == LimeState.Mandatory) {
